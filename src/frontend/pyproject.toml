@@ -1,0 +1,12 @@
+[project]
+name = "frontend"
+version = "0.1.0"
+description = "AI Evaluation Kickstarter is a Streamlit-based application for comparing and evaluating AI models, prompts, and agents. It leverages Azure AI Evaluation SDK, Semantic Kernel, and OpenTelemetry to provide performance, quality, and safety metrics along with logging and monitoring. - Frontend"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "streamlit ~=1.41.1",
+    "requests ~=2.32.3",
+    "python-dotenv ~=1.0.1",
+    "azure-identity ~=1.19.0",
+]

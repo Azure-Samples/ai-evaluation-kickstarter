@@ -1,0 +1,22 @@
+# Main pyproject.toml file for the project
+# See https://docs.astral.sh/uv/concepts/projects/layout/ for more information
+[project]
+name = "azure_ai_evaluation_kickstarter"
+version = "0.1.0"
+description = "AI Evaluation Kickstarter is a Streamlit-based application for comparing and evaluating AI models, prompts, and agents. It leverages Azure AI Evaluation SDK, Semantic Kernel, and OpenTelemetry to provide performance, quality, and safety metrics along with logging and monitoring."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "python-dotenv >=1.0.1,<1.2.0",
+    "ipykernel >=6.29.5,<7.0.0",
+    "ipywidgets >=8.1.5,<9.0.0",
+]
+
+[tool.uv.workspace]
+members = ["src/*"]
+# exclude = ["src/excluded-package"]
+
+[tool.pytest.ini_options]
+#addopts = "-ra --cov"
+addopts = "-ra"
+pythonpath = ["src"]
