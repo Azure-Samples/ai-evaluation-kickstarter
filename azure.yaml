@@ -3,17 +3,9 @@ name: azure-ai-evaluation-kickstarter
 metadata:
   template: dbroeglin/generator-az-ai@0.0.11
 services:
-  backend:
-    language: python
-    project: src/backend
-    host: containerapp
-    docker:
-      path: ./Dockerfile
-      remoteBuild: true
-      context: ../..
   frontend:
     language: python
-    project: src/frontend
+    project: src
     host: containerapp
     docker:
       path: ./Dockerfile

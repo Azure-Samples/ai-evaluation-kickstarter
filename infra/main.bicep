@@ -134,7 +134,47 @@ var azureOpenAiApiVersion = '2024-12-01-preview'
 @description('Model deployment configurations')
 var deployments = [
   {
-    name: 'gpt-4o-2024-11-20'
+    // name: 'gpt-4o-2024-11-20'
+    name: 'gpt-4.1'
+    sku: {
+      name: 'GlobalStandard'
+      capacity: 50
+    }
+    model: {
+      format: 'OpenAI'
+      name: 'gpt-4.1'
+      version: '2025-04-14'
+    }
+    versionUpgradeOption: 'OnceCurrentVersionExpired'
+  }
+  {
+    name: 'gpt-4.1-mini'
+    sku: {
+      name: 'GlobalStandard'
+      capacity: 50
+    }
+    model: {
+      format: 'OpenAI'
+      name: 'gpt-4.1-mini'
+      version: '2025-04-14'
+    }
+    versionUpgradeOption: 'OnceCurrentVersionExpired'
+  }
+  {
+    name: 'gpt-4.1-nano'
+    sku: {
+      name: 'GlobalStandard'
+      capacity: 50
+    }
+    model: {
+      format: 'OpenAI'
+      name: 'gpt-4.1-nano'
+      version: '2025-04-14'
+    }
+    versionUpgradeOption: 'OnceCurrentVersionExpired'
+  }
+  {
+    name: 'gpt-4o'
     sku: {
       name: 'GlobalStandard'
       capacity: 50
@@ -147,7 +187,7 @@ var deployments = [
     versionUpgradeOption: 'OnceCurrentVersionExpired'
   }
   {
-    name: 'gpt-4o-mini-2024-07-18'
+    name: 'gpt-4o-mini'
     sku: {
       name: 'GlobalStandard'
       capacity: 50
@@ -159,6 +199,7 @@ var deployments = [
     }
     versionUpgradeOption: 'OnceCurrentVersionExpired'
   }
+
   // {
   //   name: 'o3-mini-2025-01-31'
   //   sku: {
@@ -529,6 +570,7 @@ module backendApp 'modules/app/container-apps.bicep' = {
     env: {
       // Required for container app daprAI
       APPLICATIONINSIGHTS_CONNECTION_STRING: appInsightsComponent.outputs.connectionString
+      AZURE_SUBSCRIPTION_ID: subscription().subscriptionId
       AZURE_RESOURCE_GROUP: resourceGroup().name
       SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS: true
       SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS_SENSITIVE: true // OBS! You might want to remove this in production
@@ -536,10 +578,14 @@ module backendApp 'modules/app/container-apps.bicep' = {
       // Required for managed identity
       AZURE_CLIENT_ID: backendIdentity.outputs.clientId
 
+      AZURE_PROJECT_NAME: _aiProjectName
+
       AZURE_OPENAI_API_VERSION: azureOpenAiApiVersion
       AZURE_OPENAI_ENDPOINT: azureOpenAiApiEndpoint
-      EXECUTOR_AZURE_OPENAI_DEPLOYMENT_NAME: executorAzureOpenAiDeploymentName
-      UTILITY_AZURE_OPENAI_DEPLOYMENT_NAME: utilityAzureOpenAiDeploymentName
+      // EXECUTOR_AZURE_OPENAI_DEPLOYMENT_NAME: executorAzureOpenAiDeploymentName
+      // UTILITY_AZURE_OPENAI_DEPLOYMENT_NAME: utilityAzureOpenAiDeploymentName
+      SUPPORTED_MODELS: 'gpt-4.1,gpt-4.1-mini,gpt-4.1-nano,gpt-4o,gpt-4o-mini'
+      // SUPPORTED_MODELS: join([for d in deployments: d.name], ',')
 
       PLANNER_AZURE_OPENAI_ENDPOINT: plannerAzureOpenAiApiEndpoint
       PLANNER_AZURE_OPENAI_API_VERSION: plannerAzureOpenAiApiVersion

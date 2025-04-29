@@ -1,0 +1,6 @@
+{
+  "type": "tool_call",
+  "tool_call_id": "{{ tool_call.tool_call_id }}",
+  "name": "{{ tool_call.name }}",
+  "arguments": {{ tool_call.arguments | tojson }}
+}
