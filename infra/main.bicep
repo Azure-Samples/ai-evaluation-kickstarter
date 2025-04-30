@@ -18,7 +18,8 @@ param azurePrincipalId string
 param extraTags object = {}
 
 @description('Location for all resources')
-param location string = resourceGroup().location
+param location string
+// param location string = resourceGroup().location
 
 /* ------------ Optional externally provided model configuration ------------ */
 
@@ -286,8 +287,8 @@ module hub 'modules/ai/hub.bicep' = {
     openAiName: azureOpenAi.outputs.name
     openAiConnectionName: 'aoai-connection'
     openAiContentSafetyConnectionName: 'aoai-content-safety-connection'
-    aiSearchName: searchService.outputs.name
-    aiSearchConnectionName: 'search-service-connection'
+    // aiSearchName: searchService.outputs.name
+    // aiSearchConnectionName: 'search-service-connection'
   }
 }
 
@@ -346,7 +347,7 @@ module storageAccount 'br/public:avm/res/storage/storage-account:0.15.0' = {
           roleAssignments: [
             {
               roleDefinitionIdOrName: 'Storage Blob Data Contributor'
-              principalId: backendIdentity.outputs.principalId
+              principalId: frontendIdentity.outputs.principalId
               principalType: 'ServicePrincipal'
             }
           ]
@@ -375,11 +376,11 @@ module azureOpenAi 'modules/ai/cognitiveservices.bicep' = {
     deployments: deployments
     logAnalyticsWorkspaceResourceId: logAnalyticsWorkspace.outputs.resourceId
     roleAssignments: [
-      {
-        roleDefinitionIdOrName: 'Cognitive Services OpenAI User'
-        principalId: backendIdentity.outputs.principalId
-        principalType: 'ServicePrincipal'
-      }
+      // {
+      //   roleDefinitionIdOrName: 'Cognitive Services OpenAI User'
+      //   principalId: backendIdentity.outputs.principalId
+      //   principalType: 'ServicePrincipal'
+      // }
       {
         roleDefinitionIdOrName: 'Cognitive Services OpenAI Contributor'
         principalId: azurePrincipalId
@@ -388,16 +389,16 @@ module azureOpenAi 'modules/ai/cognitiveservices.bicep' = {
   }
 }
 
-module searchService 'br/public:avm/res/search/search-service:0.8.2' = {
-  name: _aiSearchServiceName
-  scope: resourceGroup()
-  params: {
-    location: location
-    tags: tags
-    name: _aiSearchServiceName
-    sku: aiSearchSkuName
-  }
-}
+// module searchService 'br/public:avm/res/search/search-service:0.8.2' = {
+//   name: _aiSearchServiceName
+//   scope: resourceGroup()
+//   params: {
+//     location: location
+//     tags: tags
+//     name: _aiSearchServiceName
+//     sku: aiSearchSkuName
+//   }
+// }
 
 /* ---------------------------- Observability  ------------------------------ */
 
@@ -463,11 +464,11 @@ module keyVault 'br/public:avm/res/key-vault/vault:0.11.0' = {
         principalId: frontendIdentity.outputs.principalId
         principalType: 'ServicePrincipal'
       }
-      {
-        roleDefinitionIdOrName: 'Key Vault Secrets User'
-        principalId: backendIdentity.outputs.principalId
-        principalType: 'ServicePrincipal'
-      }
+      // {
+      //   roleDefinitionIdOrName: 'Key Vault Secrets User'
+      //   principalId: backendIdentity.outputs.principalId
+      //   principalType: 'ServicePrincipal'
+      // }
       {
         principalId: azurePrincipalId
         roleDefinitionIdOrName: 'Key Vault Administrator'
@@ -508,7 +509,7 @@ module frontendApp 'modules/app/container-apps.bicep' = {
     serviceName: 'frontend' // Must match the service name in azure.yaml
     env: {
       // BACKEND_ENDPOINT: backendApp.outputs.URL
-      BACKEND_ENDPOINT: backendApp.outputs.URL
+      // BACKEND_ENDPOINT: backendApp.outputs.URL
 
       // Required for the frontend app to ask for a token for the backend app
       AZURE_CLIENT_APP_ID: authClientId
@@ -518,6 +519,15 @@ module frontendApp 'modules/app/container-apps.bicep' = {
 
       // Required for managed identity
       AZURE_CLIENT_ID: frontendIdentity.outputs.clientId
+
+      AZURE_SUBSCRIPTION_ID: subscription().id
+      AZURE_RESOURCE_GROUP: resourceGroup()
+      SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS: true
+      SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS_SENSITIVE: true // OBS! You might want to remove this in production
+      AZURE_PROJECT_NAME: _aiProjectName
+      AZURE_OPENAI_API_VERSION: azureOpenAiApiVersion
+      AZURE_OPENAI_ENDPOINT: azureOpenAiApiEndpoint
+      SUPPORTED_MODELS: 'gpt-4.1,gpt-4.1-mini,gpt-4.1-nano,gpt-4o,gpt-4o-mini'
     }
     keyvaultIdentities: useAuthentication
       ? {
@@ -544,86 +554,86 @@ module frontendContainerAppAuth 'modules/app/container-apps-auth.bicep' = if (us
   }
 }
 
-/* ------------------------------ Backend App ------------------------------- */
+// /* ------------------------------ Backend App ------------------------------- */
 
-module backendIdentity './modules/app/identity.bicep' = {
-  name: 'backendIdentity'
-  scope: resourceGroup()
-  params: {
-    location: location
-    identityName: _backendIdentityName
-  }
-}
+// module backendIdentity './modules/app/identity.bicep' = {
+//   name: 'backendIdentity'
+//   scope: resourceGroup()
+//   params: {
+//     location: location
+//     identityName: _backendIdentityName
+//   }
+// }
 
-module backendApp 'modules/app/container-apps.bicep' = {
-  name: 'backend-container-app'
-  scope: resourceGroup()
-  params: {
-    name: _backendContainerAppName
-    tags: tags
-    identityId: backendIdentity.outputs.resourceId
-    containerAppsEnvironmentName: containerAppsEnvironment.outputs.name
-    containerRegistryName: containerRegistry.outputs.name
-    exists: backendExists
-    serviceName: 'backend' // Must match the service name in azure.yaml
-    externalIngressAllowed: true
-    env: {
-      // Required for container app daprAI
-      APPLICATIONINSIGHTS_CONNECTION_STRING: appInsightsComponent.outputs.connectionString
-      AZURE_SUBSCRIPTION_ID: subscription().subscriptionId
-      AZURE_RESOURCE_GROUP: resourceGroup().name
-      SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS: true
-      SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS_SENSITIVE: true // OBS! You might want to remove this in production
+// module backendApp 'modules/app/container-apps.bicep' = {
+//   name: 'backend-container-app'
+//   scope: resourceGroup()
+//   params: {
+//     name: _backendContainerAppName
+//     tags: tags
+//     identityId: backendIdentity.outputs.resourceId
+//     containerAppsEnvironmentName: containerAppsEnvironment.outputs.name
+//     containerRegistryName: containerRegistry.outputs.name
+//     exists: backendExists
+//     serviceName: 'backend' // Must match the service name in azure.yaml
+//     externalIngressAllowed: true
+//     env: {
+//       // Required for container app daprAI
+//       APPLICATIONINSIGHTS_CONNECTION_STRING: appInsightsComponent.outputs.connectionString
+//       AZURE_SUBSCRIPTION_ID: subscription().subscriptionId
+//       AZURE_RESOURCE_GROUP: resourceGroup().name
+//       SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS: true
+//       SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS_SENSITIVE: true // OBS! You might want to remove this in production
 
-      // Required for managed identity
-      AZURE_CLIENT_ID: backendIdentity.outputs.clientId
+//       // Required for managed identity
+//       AZURE_CLIENT_ID: backendIdentity.outputs.clientId
 
-      AZURE_PROJECT_NAME: _aiProjectName
+//       AZURE_PROJECT_NAME: _aiProjectName
 
-      AZURE_OPENAI_API_VERSION: azureOpenAiApiVersion
-      AZURE_OPENAI_ENDPOINT: azureOpenAiApiEndpoint
-      // EXECUTOR_AZURE_OPENAI_DEPLOYMENT_NAME: executorAzureOpenAiDeploymentName
-      // UTILITY_AZURE_OPENAI_DEPLOYMENT_NAME: utilityAzureOpenAiDeploymentName
-      SUPPORTED_MODELS: 'gpt-4.1,gpt-4.1-mini,gpt-4.1-nano,gpt-4o,gpt-4o-mini'
-      // SUPPORTED_MODELS: join([for d in deployments: d.name], ',')
+//       AZURE_OPENAI_API_VERSION: azureOpenAiApiVersion
+//       AZURE_OPENAI_ENDPOINT: azureOpenAiApiEndpoint
+//       // EXECUTOR_AZURE_OPENAI_DEPLOYMENT_NAME: executorAzureOpenAiDeploymentName
+//       // UTILITY_AZURE_OPENAI_DEPLOYMENT_NAME: utilityAzureOpenAiDeploymentName
+//       SUPPORTED_MODELS: 'gpt-4.1,gpt-4.1-mini,gpt-4.1-nano,gpt-4o,gpt-4o-mini'
+//       // SUPPORTED_MODELS: join([for d in deployments: d.name], ',')
 
-      PLANNER_AZURE_OPENAI_ENDPOINT: plannerAzureOpenAiApiEndpoint
-      PLANNER_AZURE_OPENAI_API_VERSION: plannerAzureOpenAiApiVersion
-      PLANNER_AZURE_OPENAI_DEPLOYMENT_NAME: plannerAzureOpenAiDeploymentName
-    }
-    secrets: union(
-      {},
-      empty(plannerKeyParam) ? {} : {
-        plannerkeysecret: plannerKeyParam
-      }
-    )
-    keyvaultIdentities: useAuthentication ? {
-      'microsoft-provider-authentication-secret': {
-        keyVaultUrl: '${keyVault.outputs.uri}secrets/${authClientSecretName}'
-        identity: backendIdentity.outputs.resourceId
-      }
-    } : {}
-  }
-}
-module backendContainerAppAuth 'modules/app/container-apps-auth.bicep' = if (useAuthentication) {
-  name: 'backend-container-app-auth-module'
-  params: {
-    name: backendApp.outputs.name
-    clientId: authClientId
-    clientSecretName: 'microsoft-provider-authentication-secret'
-    openIdIssuer: '${environment().authentication.loginEndpoint}${authTenantId}/v2.0' // Works only for Microsoft Entra
-    unauthenticatedClientAction: 'Return401'
-    allowedApplications:[
+//       PLANNER_AZURE_OPENAI_ENDPOINT: plannerAzureOpenAiApiEndpoint
+//       PLANNER_AZURE_OPENAI_API_VERSION: plannerAzureOpenAiApiVersion
+//       PLANNER_AZURE_OPENAI_DEPLOYMENT_NAME: plannerAzureOpenAiDeploymentName
+//     }
+//     secrets: union(
+//       {},
+//       empty(plannerKeyParam) ? {} : {
+//         plannerkeysecret: plannerKeyParam
+//       }
+//     )
+//     keyvaultIdentities: useAuthentication ? {
+//       'microsoft-provider-authentication-secret': {
+//         keyVaultUrl: '${keyVault.outputs.uri}secrets/${authClientSecretName}'
+//         identity: backendIdentity.outputs.resourceId
+//       }
+//     } : {}
+//   }
+// }
+// module backendContainerAppAuth 'modules/app/container-apps-auth.bicep' = if (useAuthentication) {
+//   name: 'backend-container-app-auth-module'
+//   params: {
+//     name: backendApp.outputs.name
+//     clientId: authClientId
+//     clientSecretName: 'microsoft-provider-authentication-secret'
+//     openIdIssuer: '${environment().authentication.loginEndpoint}${authTenantId}/v2.0' // Works only for Microsoft Entra
+//     unauthenticatedClientAction: 'Return401'
+//     allowedApplications:[
 
-        frontendIdentity.outputs.clientId
+//         frontendIdentity.outputs.clientId
 
-        '04b07795-8ddb-461a-bbee-02f9e1bf7b46' // AZ CLI for testing purposes
-    ]
-    allowedAudiences: [
-      'api://${authClientId}'
-    ]
-  }
-}
+//         '04b07795-8ddb-461a-bbee-02f9e1bf7b46' // AZ CLI for testing purposes
+//     ]
+//     allowedAudiences: [
+//       'api://${authClientId}'
+//     ]
+//   }
+// }
 
 
 /* -------------------------------------------------------------------------- */
@@ -644,8 +654,8 @@ output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerRegistry.outputs.logi
 @description('Endpoint URL of the Frontend service')
 output SERVICE_FRONTEND_URL string = frontendApp.outputs.URL
 
-@description('Endpoint URL of the Backend service')
-output SERVICE_BACKEND_URL string = backendApp.outputs.URL
+// @description('Endpoint URL of the Backend service')
+// output SERVICE_BACKEND_URL string = backendApp.outputs.URL
 
 
 /* ------------------------ Authentication & RBAC -------------------------- */

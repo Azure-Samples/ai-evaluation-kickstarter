@@ -5,7 +5,7 @@ metadata:
 services:
   frontend:
     language: python
-    project: src
+    project: src/ai-evaluation
     host: containerapp
     docker:
       path: ./Dockerfile
