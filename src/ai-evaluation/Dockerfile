@@ -4,7 +4,7 @@
 
 FROM python:3.12-slim AS base
 
-ENV APP_NAME=ai-evaluation
+ENV APP_NAME=frontend
 
 ###############
 # Build stage #
