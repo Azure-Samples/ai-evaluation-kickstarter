@@ -4,8 +4,6 @@
 
 FROM python:3.12-slim AS base
 
-ENV APP_NAME=frontend
-
 ###############
 # Build stage #
 ###############
@@ -18,17 +16,13 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
-    UV_PYTHON_DOWNLOADS=never \
-    UV_PYTHON=python3.12 \
     UV_PROJECT_ENVIRONMENT=/app/.venv
+# UV_PYTHON_DOWNLOADS=never \
+# UV_PYTHON=python3.12
 
 WORKDIR /app
 
-## Install depdencies first as they change less often
-
-COPY uv.lock pyproject.toml .python-version /app/
-COPY src/${APP_NAME}/pyproject.toml /app/src/${APP_NAME}/
-COPY src/${APP_NAME}/.python-version /app/src/${APP_NAME}/
+COPY uv.lock pyproject.toml /app/
 RUN uv sync \
     --frozen \
     --no-dev \
@@ -36,27 +30,23 @@ RUN uv sync \
     --no-editable \
     --all-packages
 
-## Install the app last as it changes most often
-
-COPY src/${APP_NAME} /app/src/${APP_NAME}
-RUN uv sync \
-    --frozen \
-    --no-dev \
-    --no-editable \
-    --project src/${APP_NAME}
+COPY *.py /app/
+COPY evalagents /app/evalagents
+COPY templates /app/templates
+COPY utils /app/utils
 
 ###############
 # Final image #
 ###############
 
 FROM base
+STOPSIGNAL SIGINT
 
 RUN groupadd -r app
 RUN useradd -r -d /app -g app -N app
 
-WORKDIR /app/src/${APP_NAME}
-COPY --from=builder --chown=app:app /app/.venv /app/.venv
-COPY --from=builder --chown=app:app /app/src/${APP_NAME} /app/src/${APP_NAME}
+COPY --from=builder --chown=app:app /app /app
+WORKDIR /app
 
 EXPOSE 8000
 ENTRYPOINT ["/app/.venv/bin/streamlit", "run", "app.py", "--server.port=8000", "--server.address=0.0.0.0"]

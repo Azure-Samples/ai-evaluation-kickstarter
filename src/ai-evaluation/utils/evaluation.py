@@ -5,6 +5,8 @@ import tempfile
 import pandas as pd
 from abc import ABC, abstractmethod
 from azure.identity import DefaultAzureCredential
+from azure.keyvault.secrets import SecretClient
+import os
 from azure.ai.projects import AIProjectClient
 from azure.ai.evaluation import (
     evaluate,
@@ -132,6 +134,10 @@ def get_evaluator_factories(judge_model):
     Returns:
         A dictionary mapping evaluator names to factory functions.
     """
+
+    print(f"Creating evaluator factories with judge model: {judge_model}")
+    
+    # Define evaluator factories
     return {
         # Performance and Quality (AI-assisted)
         "groundedness": lambda: GroundednessEvaluator(judge_model),
@@ -179,6 +185,20 @@ class AiEvaluation(ABC):
             project_name=os.getenv("AZURE_PROJECT_NAME")
         )
 
+        # Using Managed Identity for authentication
+        # from azure.ai.projects.models import ConnectionType
+        # self.azure_ai_project_client = AIProjectClient(
+        #     endpoint=os.getenv("AZURE_PROJECT_ENDPOINT"),
+        # )
+ 
+        # default_connection = self.azure_ai_project_client.connections.get_default(
+        #                     connection_type=ConnectionType.AZURE_OPEN_AI,
+        #             include_credentials=True)
+        # model_config =  default_connection.to_evaluator_model_config(
+        #         deployment_name=os.environ["MODEL_DEPLOYMENT_NAME"],
+        #         api_version=os.environ["MODEL_DEPLOYMENT_API_VERSION"],
+        #         include_credentials=True)
+
         # self.project_client = AIProjectClient.from_connection_string(
         #     credential=DefaultAzureCredential(),
         #     conn_str=os.environ["PROJECT_CONNECTION_STRING"],
@@ -199,13 +219,23 @@ class AiEvaluation(ABC):
         return dataset
 
     def get_judge_model_configuration(self):
-        """Get the configuration for the judge model.
-        Returns:
-            An AzureOpenAIModelConfiguration instance for the judge model.
-        """
+        """Get the configuration for the judge model (reads key from env or Key Vault)."""
+        # Try environment variable first
+        api_key = os.getenv("AZURE_OPENAI_API_KEY")
+        if not api_key:
+            # Fallback to Key Vault
+            vault_url = os.getenv("AZURE_KEY_VAULT_URL")
+            if not vault_url:
+                raise ValueError("AZURE_OPENAI_API_KEY not set and AZURE_KEY_VAULT_URL is missing")
+            secret_name = os.getenv("AZURE_OPENAI_SECRET_NAME", "AzureOpenAIKey")
+            print(f"Fetching secret {secret_name} from Key Vault {vault_url}")
+            credential = DefaultAzureCredential()
+            client = SecretClient(vault_url=vault_url, credential=credential)
+            api_key = client.get_secret(secret_name).value
+
         return AzureOpenAIModelConfiguration(
             azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+            api_key=api_key,
             azure_deployment=self.judge_model_name,
             api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-10-21")
         )
@@ -227,6 +257,7 @@ class AiEvaluation(ABC):
         factories = get_evaluator_factories(judge_model)
         for name, use_eval in evaluator_config.items():
             if use_eval and name in factories:
+                print(f"Adding evaluator: {name}")
                 self.add_evaluator(name, factories[name]())
 
     def process_evaluation_data(self, data):
@@ -253,8 +284,12 @@ class AiEvaluation(ABC):
             eval_data.to_json(temp_file.name, orient="records", lines=True)
             temp_file_path = temp_file.name
         return eval_data, temp_file_path
+    
+    # Not yet implemented
+    def run_cloud_evaluation(self, data, run_id=None, evaluation_name=None):
+        pass
 
-    def run_evaluation(self, data, run_id=None, evaluation_name=None):
+    def run_evaluation(self, data, run_id=None, evaluation_name=None, cloud_evaluation=False):
         """Run the evaluation using the configured evaluators.
         Args:
             data: The data to evaluate.
@@ -268,6 +303,7 @@ class AiEvaluation(ABC):
             run_id = random.randint(1111, 9999)
         if evaluation_name is None:
             evaluation_name = f"Eval-Run-{run_id}-{self.model_name}"
+
         evaluator_config = EvaluatorConfig(
             column_mapping={
                 "response": "${data.response}",
@@ -276,22 +312,27 @@ class AiEvaluation(ABC):
                 "ground_truth": "${data.ground_truth}"
             }
         )
-        try:
-            results = evaluate(
-                evaluation_name=evaluation_name,
-                data=temp_file_path,
-                evaluators=self.evaluators,
-                azure_ai_project=self.azure_ai_project,
-                evaluator_config=evaluator_config,
-            )
-            if isinstance(results, dict):
-                results["run_id"] = run_id
-                results["model_name"] = self.model_name
-        finally:
+        if cloud_evaluation:
+            self.run_cloud_evaluation(data, run_id, evaluation_name)
+            results = None
+        elif cloud_evaluation == False:
             try:
-                os.remove(temp_file_path)
-            except Exception:
-                pass
+                results = evaluate(
+                    evaluation_name=evaluation_name,
+                    data=temp_file_path,
+                    evaluators=self.evaluators,
+                    azure_ai_project=self.azure_ai_project,
+                    evaluator_config=evaluator_config,
+                )
+                if isinstance(results, dict):
+                    results["run_id"] = run_id
+                    results["model_name"] = self.model_name
+            finally:
+                try:
+                    os.remove(temp_file_path)
+                except Exception:
+                    pass
+
         return results
 
     @abstractmethod
@@ -352,7 +393,7 @@ class ModelEvaluation(AiEvaluation):
 
 class PromptEvaluation(AiEvaluation):
     """Evaluation for prompt comparison."""
-    def __init__(self, model_name: str, judge_model_name: str = "gpt-4.5-preview", response_dataset=None):
+    def __init__(self, model_name: str, judge_model_name: str = "gpt-4.1", response_dataset=None):
         """Initialize the PromptEvaluation class.
         Args:
             model_name: The name of the model to evaluate.

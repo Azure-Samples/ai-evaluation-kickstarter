@@ -24,6 +24,8 @@ SUPPORTED_MODELS = [
     model.strip() for model in os.getenv("SUPPORTED_MODELS", "gpt-4o,gpt-4o-mini").split(',')
 ]
 
+print(f"Supported models: {SUPPORTED_MODELS}")
+
 class ModelEndpoints:
     """Class to handle calls to various model endpoints"""
     
@@ -38,7 +40,7 @@ class ModelEndpoints:
         self.set_system_message("You are a helpful assistant.")
         
         # Load environment variables
-        load_dotenv(override=True)
+        # load_dotenv(override=True)
         endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
         azure_api_key = os.getenv("AZURE_OPENAI_API_KEY")
         credential = AzureKeyCredential(azure_api_key) if azure_api_key else DefaultAzureCredential()

@@ -135,7 +135,6 @@ var azureOpenAiApiVersion = '2024-12-01-preview'
 @description('Model deployment configurations')
 var deployments = [
   {
-    // name: 'gpt-4o-2024-11-20'
     name: 'gpt-4.1'
     sku: {
       name: 'GlobalStandard'
@@ -287,6 +286,8 @@ module hub 'modules/ai/hub.bicep' = {
     openAiName: azureOpenAi.outputs.name
     openAiConnectionName: 'aoai-connection'
     openAiContentSafetyConnectionName: 'aoai-content-safety-connection'
+    authType: 'AAD'
+    publicNetworkAccess: 'Enabled'
     // aiSearchName: searchService.outputs.name
     // aiSearchConnectionName: 'search-service-connection'
   }
@@ -376,11 +377,11 @@ module azureOpenAi 'modules/ai/cognitiveservices.bicep' = {
     deployments: deployments
     logAnalyticsWorkspaceResourceId: logAnalyticsWorkspace.outputs.resourceId
     roleAssignments: [
-      // {
-      //   roleDefinitionIdOrName: 'Cognitive Services OpenAI User'
-      //   principalId: backendIdentity.outputs.principalId
-      //   principalType: 'ServicePrincipal'
-      // }
+      {
+        roleDefinitionIdOrName: 'Cognitive Services OpenAI User'
+        principalId: frontendIdentity.outputs.principalId
+        principalType: 'ServicePrincipal'
+      }
       {
         roleDefinitionIdOrName: 'Cognitive Services OpenAI Contributor'
         principalId: azurePrincipalId
@@ -388,6 +389,13 @@ module azureOpenAi 'modules/ai/cognitiveservices.bicep' = {
     ]
   }
 }
+// Reference the deployed Cognitive Services account to fetch keys
+resource openAiAccount 'Microsoft.CognitiveServices/accounts@2023-05-01' existing = {
+  name: _azureOpenAiName
+}
+
+// Retrieve the primary key from the deployed Azure OpenAI Cognitive Services account
+var azureOpenAiPrimaryKey = openAiAccount.listKeys().key1
 
 // module searchService 'br/public:avm/res/search/search-service:0.8.2' = {
 //   name: _aiSearchServiceName
@@ -474,14 +482,21 @@ module keyVault 'br/public:avm/res/key-vault/vault:0.11.0' = {
         roleDefinitionIdOrName: 'Key Vault Administrator'
       }
     ]
-    secrets: useAuthentication && authClientSecret != ''
-      ? [
-          {
-            name: authClientSecretName
-            value: authClientSecret
-          }
-        ]
-      : []
+    // Store auth client secret (if used) and Azure OpenAI key
+    secrets: union(
+      (useAuthentication && authClientSecret != '') ? [
+        {
+          name: authClientSecretName
+          value: authClientSecret
+        }
+      ] : [],
+      [
+        {
+          name: 'AzureOpenAIKey'
+          value: azureOpenAiPrimaryKey
+        }
+      ]
+    )
   }
 }
 
@@ -520,11 +535,13 @@ module frontendApp 'modules/app/container-apps.bicep' = {
       // Required for managed identity
       AZURE_CLIENT_ID: frontendIdentity.outputs.clientId
 
-      AZURE_SUBSCRIPTION_ID: subscription().id
-      AZURE_RESOURCE_GROUP: resourceGroup()
+      AZURE_SUBSCRIPTION_ID: subscription().subscriptionId
+      AZURE_RESOURCE_GROUP: resourceGroup().name
       SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS: true
       SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS_SENSITIVE: true // OBS! You might want to remove this in production
       AZURE_PROJECT_NAME: _aiProjectName
+      AZURE_KEY_VAULT_URL: keyVault.outputs.uri
+      AZURE_OPENAI_SECRET_NAME: 'AzureOpenAIKey'
       AZURE_OPENAI_API_VERSION: azureOpenAiApiVersion
       AZURE_OPENAI_ENDPOINT: azureOpenAiApiEndpoint
       SUPPORTED_MODELS: 'gpt-4.1,gpt-4.1-mini,gpt-4.1-nano,gpt-4o,gpt-4o-mini'
@@ -697,6 +714,15 @@ output PLANNER_AZURE_OPENAI_API_VERSION string = plannerAzureOpenAiApiVersion
 
 @description('Azure OpenAI Key: Planner')
 output plannerkeysecret string = plannerKeyParam
+
+@description('Azure AI Project Name')
+output AZURE_PROJECT_NAME string = _aiProjectName
+
+@description('Azure Key Vault URL')
+output AZURE_KEY_VAULT_URL string = keyVault.outputs.uri
+
+@description('Azure OpenAI Secret Name in Azure Key Vault')
+output AZURE_OPENAI_SECRET_NAME string = 'AzureOpenAIKey'
 
 /* --------------------------- Observability ------------------------------ */
 

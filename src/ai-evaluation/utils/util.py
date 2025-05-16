@@ -64,10 +64,12 @@ def load_dotenv_from_azd():
     result = run("azd env get-values", stdout=PIPE, stderr=PIPE, shell=True, text=True)
     if result.returncode == 0:
         logging.info(f"Found AZD environment. Loading...")
-        load_dotenv(stream=StringIO(result.stdout))
+        print(f"Found AZD environment. Loading...")
+        load_dotenv(stream=StringIO(result.stdout), override=True)
     else:
         logging.info(f"AZD environment not found. Trying to load from .env file...")
-        load_dotenv()
+        print(f"AZD environment not found. Trying to load from .env file...")
+        load_dotenv(override=True)
 
 telemetry_resource = Resource.create({ResourceAttributes.SERVICE_NAME: os.getenv("AZURE_RESOURCE_GROUP","ai-accelerator")})
 

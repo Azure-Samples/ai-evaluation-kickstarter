@@ -10,6 +10,7 @@ dependencies = [
     "python-dotenv >=1.0.1,<1.2.0",
     "ipykernel >=6.29.5,<7.0.0",
     "ipywidgets >=8.1.5,<9.0.0",
+    "azure-keyvault-secrets>=4.9.0",
 ]
 
 [tool.uv.workspace]

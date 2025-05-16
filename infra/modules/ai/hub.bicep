@@ -30,6 +30,9 @@ param skuTier string = 'Basic'
 @allowed(['Enabled','Disabled'])
 param publicNetworkAccess string = 'Enabled'
 
+@allowed(['AAD', 'ApiKey', 'ManagedIdentity', 'None'])
+param authType string = 'AAD'
+
 param location string = resourceGroup().location
 param tags object = {}
 
@@ -57,13 +60,14 @@ resource hub 'Microsoft.MachineLearningServices/workspaces@2024-01-01-preview' =
     }
     v1LegacyMode: false
     publicNetworkAccess: publicNetworkAccess
+    systemDatastoresAuthMode: 'identity'
   }
 
   resource openAiConnection 'connections' = {
     name: openAiConnectionName
     properties: {
       category: 'AzureOpenAI'
-      authType: 'ApiKey'
+      authType: authType
       isSharedToAll: true
       target: openAi.properties.endpoints['OpenAI Language Model Instance API']
       metadata: {
@@ -71,29 +75,29 @@ resource hub 'Microsoft.MachineLearningServices/workspaces@2024-01-01-preview' =
         ApiType: 'azure'
         ResourceId: openAi.id
       }
-      credentials: {
+      credentials: authType == 'ApiKey' ?{
         key: openAi.listKeys().key1
-      }
+      } : null
     }
   }
 
-  resource contentSafetyConnection 'connections' = {
-    name: openAiContentSafetyConnectionName
-    properties: {
-      category: 'AzureOpenAI'
-      authType: 'ApiKey'
-      isSharedToAll: true
-      target: openAi.properties.endpoints['Content Safety']
-      metadata: {
-        ApiVersion: '2023-07-01-preview'
-        ApiType: 'azure'
-        ResourceId: openAi.id
-      }
-      credentials: {
-        key: openAi.listKeys().key1
-      }
-    }
-  }
+  // resource contentSafetyConnection 'connections' = {
+  //   name: openAiContentSafetyConnectionName
+  //   properties: {
+  //     category: 'AzureOpenAI'
+  //     authType: 'ApiKey'
+  //     isSharedToAll: true
+  //     target: openAi.properties.endpoints['Content Safety']
+  //     metadata: {
+  //       ApiVersion: '2023-07-01-preview'
+  //       ApiType: 'azure'
+  //       ResourceId: openAi.id
+  //     }
+  //     credentials: {
+  //       key: openAi.listKeys().key1
+  //     }
+  //   }
+  // }
 
   // resource searchConnection 'connections' =
   //   if (!empty(aiSearchName)) {

@@ -1,13 +1,13 @@
-from dotenv import load_dotenv
-from utils.util import load_dotenv_from_azd
 import streamlit as st
 
 import pandas as pd
 import random
-from utils.evaluation import ModelEvaluation, PromptEvaluation, AgentEvaluation
-from utils.models import SUPPORTED_MODELS
 import logging
 import asyncio
+
+from utils.util import load_dotenv_from_azd
+from utils.evaluation import ModelEvaluation, PromptEvaluation, AgentEvaluation
+from utils.models import SUPPORTED_MODELS
 
 # Load environment variables from .env file
 load_dotenv_from_azd()
