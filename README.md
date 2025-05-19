@@ -11,55 +11,24 @@ AI Evaluation Kickstarter is a Streamlit-based application for comparing and eva
 - **Azure Integration**: Uses Azure AI Project, Azure OpenAI, and Azure Monitor (via OpenTelemetry) for evaluation, logging, tracing, and metrics.
 - **Download Responses**: Export generated responses and datasets as JSONL files for further analysis.
 
-## Requirements
 
-- Python 3.10+
-- Azure subscription with:
-  - Azure OpenAI resource
-  - Azure AI Project enabled
-  - Azure Monitor workspace
-- Environment variables configured in `.env` or sample.env
+## Deployment
 
-## Installation
+1. Login with Azure Developer CLI
 
-1. Clone the repository:
+```bash
+azd auth login
+```
 
-   ```bash
-   git clone https://github.com/your-org/ai-evaluation-kickstarter.git
-   cd ai-evaluation-kickstarter
-   ```
+2. Run azd up
 
-2. Create a virtual environment and install dependencies:
-
-   ```bash
-   python -m venv venv
-   venv\Scripts\Activate.ps1  # PowerShell
-   pip install -r requirements.txt
-   ```
-
-3. Copy `sample.env` to `.env` and set your Azure credentials and endpoints:
-
-   ```env
-   AZURE_SUBSCRIPTION_ID=...
-   AZURE_RESOURCE_GROUP=...
-   AZURE_PROJECT_NAME=...
-   AZURE_OPENAI_ENDPOINT=...
-   AZURE_OPENAI_API_KEY=...
-   AZURE_OPENAI_API_VERSION=2024-10-21
-   AZURE_OPENAI_INFERENCE_ENDPOINT=...
-   SUPPORTED_MODELS=gpt-4o,gpt-4o-mini,gpt-4.1
-   PROJECT_CONNECTION_STRING=...
-   ```
+```bash
+azd up
+```
 
 ## Usage
 
-Run the Streamlit application locally:
-
-```powershell
-streamlit run app.py
-```
-
-Navigate to `http://localhost:8501` in your browser and:
+Navigate to container app in your browser. The URL will be displayed in your console once the deployment has finished successfully. Alternatively, browse to the Azure Portal, find the Container App which was just deployed and click its URL. When you open the app:
 
 1. Select evaluators in the sidebar.
 2. Choose between Development and Production modes.
@@ -67,7 +36,7 @@ Navigate to `http://localhost:8501` in your browser and:
    - **Evaluate Models**: Upload or enter test data, select two models and a judge LLM, then generate and evaluate responses.
    - **Evaluate Prompts**: Enter two system messages and a prompt, then compare model outputs and metrics.
    - **Evaluate Agents**: Run a chat agent, view conversations, and evaluate tool calls and agent behaviors.
-4. Download JSONL datasets of responses for offline analysis.
+4. Download JSONL datasets of responses for offline analysis if needed.
 
 ## Architecture
 
